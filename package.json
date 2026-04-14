@@ -10,17 +10,22 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.63",
+    "@ai-sdk/groq": "^3.0.35",
+    "@ai-sdk/react": "^3.0.161",
     "@google/generative-ai": "^0.21.0",
     "@supabase/ssr": "^0.3.0",
     "@supabase/supabase-js": "^2.43.4",
-    "ai": "^3.1.20",
+    "@tailwindcss/typography": "^0.5.19",
+    "ai": "^6.0.159",
     "lucide-react": "^0.381.0",
     "next": "14.2.3",
     "pdf-parse": "^1.1.1",
     "pg": "^8.11.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "xlsx": "^0.18.5"
+    "react-markdown": "^10.1.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.19",

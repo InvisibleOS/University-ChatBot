@@ -1,101 +1,131 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Mic, Send, User, Bot } from 'lucide-react';
-import { useChat } from 'ai/react';
+import { useChat } from '@ai-sdk/react';
+import ReactMarkdown from 'react-markdown';
 
 export default function ChatInterface() {
-  const [mode, setMode] = useState('standard'); 
-  const [isRecording, setIsRecording] = useState(false);
-  
-  const { messages, input, handleInputChange, handleSubmit, setMessages, isLoading } = useChat({
-    api: '/api/chat',
-    body: { mode }
-  });
+  const { messages, sendMessage, status } = useChat({ api: '/api/chat' });
+  const isLoading = status === 'streaming' || status === 'submitted';
+  const [inputValue, setInputValue] = useState('');
 
   const messagesEndRef = useRef(null);
 
-  const scrollToBottom = () => {
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, [messages]);
 
-  useEffect(scrollToBottom, [messages]);
+  // Helper to extract text from AI SDK v6 UI messages
+  const getMessageContent = (msg) => {
+    if (typeof msg.content === 'string' && msg.content) return msg.content;
+    if (Array.isArray(msg.parts)) {
+      return msg.parts
+        .filter(p => p.type === 'text')
+        .map(p => p.text)
+        .join('');
+    }
+    return '';
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 font-sans">
-      {/* Header with MIT Branding */}
+      {/* Header */}
       <header className="bg-gradient-to-r from-orange-600 to-orange-800 text-white p-4 shadow-lg flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">MIT Bengaluru Virtual Assistant</h1>
-          <p className="text-sm opacity-80">Empowered by AI</p>
+          <p className="text-sm opacity-80">Empowered by AI · Ask me anything, including mock interviews</p>
         </div>
-        <select 
-          className="bg-white/20 border border-white/30 rounded px-3 py-1 text-white outline-none"
-          value={mode}
-          onChange={(e) => setMode(e.target.value)}
+        <a
+          href="/admin"
+          className="text-sm border border-white/30 rounded px-3 py-1 text-white hover:bg-white/10 transition"
         >
-          <option value="standard" className="text-black">Standard Mode</option>
-          <option value="interview" className="text-black">Interview Coach</option>
-        </select>
+          Manage Data
+        </a>
       </header>
 
       {/* Chat Area */}
       <main className="flex-1 overflow-y-auto p-4 space-y-4 max-w-4xl mx-auto w-full">
         {messages.length === 0 && (
-          <div className="h-full flex items-center justify-center text-gray-400">
-            <p>How can I assist you today?</p>
+          <div className="h-full flex flex-col items-center justify-center gap-3 text-gray-400">
+            <p className="text-lg">How can I assist you today?</p>
+            <div className="flex flex-wrap justify-center gap-2 mt-2">
+              {[
+                'What courses does MIT Bengaluru offer?',
+                'Tell me about placements',
+                'Start a mock interview for a SWE role',
+              ].map(suggestion => (
+                <button
+                  key={suggestion}
+                  onClick={() => setInputValue(suggestion)}
+                  className="text-sm bg-white border border-gray-200 rounded-full px-4 py-2 hover:border-orange-400 hover:text-orange-600 transition-colors shadow-sm"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
           </div>
         )}
-        
+
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[75%] rounded-2xl p-4 shadow-sm ${
-              msg.role === 'user' 
-                ? 'bg-orange-600 text-white rounded-br-none' 
+              msg.role === 'user'
+                ? 'bg-orange-600 text-white rounded-br-none'
                 : 'bg-white text-gray-800 border border-gray-100 rounded-bl-none'
             }`}>
-              <div className="flex items-center gap-2 mb-1 opacity-70 text-xs">
+              <div className="flex items-center gap-2 mb-2 opacity-70 text-xs">
                 {msg.role === 'user' ? <User size={14}/> : <Bot size={14}/>}
                 <span>{msg.role === 'user' ? 'You' : 'MIT Assistant'}</span>
               </div>
-              <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+              <div className={`prose prose-sm max-w-none leading-relaxed ${
+                msg.role === 'user' ? 'prose-invert text-white' : 'text-slate-800'
+              }`}>
+                <ReactMarkdown>
+                  {getMessageContent(msg)}
+                </ReactMarkdown>
+              </div>
             </div>
           </div>
         ))}
+
         {isLoading && (
-            <div className="flex justify-start">
-               <div className="bg-white text-gray-800 border border-gray-100 rounded-2xl rounded-bl-none p-4 shadow-sm animate-pulse">
-                   <div className="flex items-center gap-2 mb-1 opacity-70 text-xs"><Bot size={14}/><span>MIT Assistant</span></div>
-                   <p className="whitespace-pre-wrap leading-relaxed">...</p>
-               </div>
+          <div className="flex justify-start">
+            <div className="bg-white text-gray-800 border border-gray-100 rounded-2xl rounded-bl-none p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-2 opacity-70 text-xs"><Bot size={14}/><span>MIT Assistant</span></div>
+              <div className="flex gap-1">
+                <span className="w-2 h-2 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: '0ms' }}/>
+                <span className="w-2 h-2 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: '150ms' }}/>
+                <span className="w-2 h-2 rounded-full bg-orange-400 animate-bounce" style={{ animationDelay: '300ms' }}/>
+              </div>
             </div>
+          </div>
         )}
         <div ref={messagesEndRef} />
       </main>
 
       {/* Input Area */}
       <footer className="bg-white border-t p-4">
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto flex items-center gap-2 bg-gray-100 rounded-full p-2 pr-4 shadow-inner">
-          <button 
-            type="button"
-            className={`p-3 rounded-full transition-colors ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-gray-500 hover:bg-gray-200'}`}
-            onClick={() => setIsRecording(!isRecording)}
-            title="Toggle Voice Input"
-          >
-            <Mic size={20} />
-          </button>
-          
-          <input 
-            type="text" 
-            className="flex-1 bg-transparent outline-none px-2"
-            placeholder="Ask about courses, faculty, or placements..."
-            value={input}
-            onChange={handleInputChange}
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const msg = inputValue.trim();
+            if (!msg || isLoading) return;
+            setInputValue('');
+            await sendMessage({ text: msg });
+          }}
+          className="max-w-4xl mx-auto flex items-center gap-2 bg-gray-100 rounded-full p-2 pr-4 shadow-inner"
+        >
+          <input
+            type="text"
+            className="flex-1 bg-transparent outline-none px-3"
+            placeholder="Ask about courses, placements, or say 'start a mock interview'..."
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
           />
-          
-          <button 
+          <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || !inputValue.trim()}
             className="bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white p-3 rounded-full transition-transform active:scale-95 shadow-md flex items-center justify-center"
           >
             <Send size={18} className="translate-x-[1px]" />

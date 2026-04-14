@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { embed } from 'ai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import pg from 'pg';
 import pdf from 'pdf-parse';
 import * as xlsx from 'xlsx';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const googleAI = createGoogleGenerativeAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
+
 const { Pool } = pg;
 const pool = new Pool({ 
     connectionString: process.env.DATABASE_URL,
@@ -79,9 +83,11 @@ async function extractTextFromFile(buffer, mimeType, filename) {
 async function generateEmbeddingWithRetry(textChunk, maxRetries = 3) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            const model = genAI.getGenerativeModel({ model: 'text-embedding-004' });
-            const result = await model.embedContent(textChunk);
-            return result.embedding.values;
+            const { embedding } = await embed({
+                model: googleAI.textEmbeddingModel('gemini-embedding-001'),
+                value: textChunk,
+            });
+            return embedding;
             
         } catch (error) {
             if (error?.status === 429 && attempt < maxRetries) {
@@ -94,11 +100,14 @@ async function generateEmbeddingWithRetry(textChunk, maxRetries = 3) {
     }
 }
 
+// --- Vercel Route Config ---
+export const maxDuration = 10; // Strict limit for Vercel Hobby
+
 export async function POST(req) {
   try {
     const formData = await req.formData();
     const file = formData.get('file');
-    const uploadedBy = formData.get('userId') || 'admin';
+    const uploadedBy = null;
 
     if (!file) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
@@ -115,6 +124,15 @@ export async function POST(req) {
         throw new Error("Document contained no extractable textual data.");
     }
 
+    // Hobby Tier Safety Check: 10s is very short for embedding many chunks.
+    // If a document has more than 50 chunks, it will almost certainly time out.
+    if (chunks.length > 50) {
+        return NextResponse.json({ 
+            error: 'Document too large for Vercel Hobby tier.', 
+            details: `This document has ${chunks.length} chunks. The limit for single-pass ingestion on the free tier is ~50 chunks to avoid timeouts.`
+        }, { status: 413 });
+    }
+
     const client = await pool.connect();
 
     try {
@@ -126,16 +144,29 @@ export async function POST(req) {
             [filename, mimeType, uploadedBy]
         );
         const documentId = docRes.rows[0].id;
-        
-        for (let i = 0; i < chunks.length; i++) {
-            const chunkContent = chunks[i];
-            const embedding = await generateEmbeddingWithRetry(chunkContent);
 
-            await client.query(
-                `INSERT INTO document_embeddings (document_id, content, embedding, chunk_index)
-                 VALUES ($1, $2, $3::vector, $4)`,
-                [documentId, chunkContent, JSON.stringify(embedding), i]
+        // Process in parallel batches of 5 to speed up ingestion while staying within 10s
+        const BATCH_SIZE = 5;
+        for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+            const batch = chunks.slice(i, i + BATCH_SIZE);
+            const embeddingPromises = batch.map((chunk, index) => 
+                generateEmbeddingWithRetry(chunk).then(embedding => ({
+                    content: chunk,
+                    embedding,
+                    chunkIndex: i + index
+                }))
             );
+
+            const results = await Promise.all(embeddingPromises);
+
+            // Sequential DB inserts to maintain transaction integrity
+            for (const res of results) {
+                await client.query(
+                    `INSERT INTO document_embeddings (document_id, content, embedding, chunk_index)
+                     VALUES ($1, $2, $3::vector, $4)`,
+                    [documentId, res.content, JSON.stringify(res.embedding), res.chunkIndex]
+                );
+            }
         }
 
         await client.query('COMMIT'); 
@@ -149,7 +180,7 @@ export async function POST(req) {
     }
 
   } catch (error) {
-    console.error(error);
+    console.error('[Upload Error]', error);
     return NextResponse.json({ error: 'Failed to process document', details: error.message }, { status: 500 });
   }
 }

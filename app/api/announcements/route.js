@@ -1,40 +1,74 @@
+// Announcements Route
+// POST: Embed and store an announcement in the DB
+// GET:  Fetch all announcements ordered by newest first
+
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { embed } from 'ai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import pg from 'pg';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const { Pool } = pg;
-const pool = new Pool({ 
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+const googleAI = createGoogleGenerativeAI({
+  apiKey: process.env.GEMINI_API_KEY,
 });
 
+const { Pool } = pg;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+// GET — list all announcements (newest first)
+export async function GET() {
+  try {
+    const res = await pool.query(
+      `SELECT id, title, content, created_at
+       FROM announcements
+       ORDER BY created_at DESC`
+    );
+    return NextResponse.json({ announcements: res.rows });
+  } catch (error) {
+    console.error('[Announcements GET]', error);
+    return NextResponse.json({ error: 'Failed to fetch announcements' }, { status: 500 });
+  }
+}
+
+// POST — embed and store a new announcement
 export async function POST(req) {
-    try {
-        const { title, content, postedBy } = await req.json();
-        
-        if (!title || !content) {
-            return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
-        }
+  try {
+    const { title, content } = await req.json();
 
-        const fullText = `ANNOUNCEMENT: ${title}\n\n${content}`;
-        
-        const model = genAI.getGenerativeModel({ model: 'text-embedding-004' });
-        const result = await model.embedContent(fullText);
-        const embedding = result.embedding.values;
-
-        const res = await pool.query(
-            `INSERT INTO announcements (title, content, posted_by, embedding)
-             VALUES ($1, $2, $3, $4::vector) RETURNING id`,
-            [title, content, postedBy || 'admin', JSON.stringify(embedding)]
-        );
-
-        return NextResponse.json({ 
-            message: 'Announcement posted and vectorized',
-            announcementId: res.rows[0].id
-        }, { status: 201 });
-    } catch (error) {
-        console.error('Announcement Error:', error);
-        return NextResponse.json({ error: 'Failed to post announcement' }, { status: 500 });
+    if (!title || !content) {
+      return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
     }
+
+    const fullText = `ANNOUNCEMENT: ${title}\n\n${content}`;
+
+    // Embed using Gemini (preserves 3072d vector space)
+    const { embedding } = await embed({
+      model: googleAI.textEmbeddingModel('gemini-embedding-001'),
+      value: fullText,
+    });
+
+    // posted_by is NULL — no auth system yet (schema has no NOT NULL constraint)
+    const res = await pool.query(
+      `INSERT INTO announcements (title, content, embedding)
+       VALUES ($1, $2, $3::vector)
+       RETURNING id, title, content, created_at`,
+      [title, content, JSON.stringify(embedding)]
+    );
+
+    return NextResponse.json(
+      {
+        message: 'Announcement posted and vectorized',
+        announcement: res.rows[0],
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error('[Announcements POST]', error);
+    return NextResponse.json(
+      { error: 'Failed to post announcement', details: error.message },
+      { status: 500 }
+    );
+  }
 }

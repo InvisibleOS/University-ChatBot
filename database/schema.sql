@@ -25,7 +25,7 @@ CREATE TABLE document_embeddings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
-    embedding vector(768), -- text-embedding-004 uses 768 dimensions
+    embedding vector(3072), -- gemini-embedding-001 uses 3072 dimensions
     chunk_index INTEGER
 );
 
@@ -35,10 +35,11 @@ CREATE TABLE announcements (
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
     posted_by UUID REFERENCES users(id),
-    embedding vector(768),
+    embedding vector(3072),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create a vector index for faster similarity search
-CREATE INDEX ON document_embeddings USING hnsw (embedding vector_cosine_ops);
-CREATE INDEX ON announcements USING hnsw (embedding vector_cosine_ops);
+-- Note: HNSW index is limited to 2000 dimensions. For gemini-embedding-001 (3072 dims),
+-- sequential scan is used. Add IVFFlat index once you have sufficient data:
+-- CREATE INDEX ON document_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+-- CREATE INDEX ON announcements USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
