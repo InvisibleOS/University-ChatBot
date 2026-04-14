@@ -25,7 +25,7 @@ CREATE TABLE document_embeddings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
-    embedding vector(3072), -- text-embedding-3-large uses 3072 dimensions
+    embedding vector(768), -- text-embedding-004 uses 768 dimensions
     chunk_index INTEGER
 );
 
@@ -35,7 +35,7 @@ CREATE TABLE announcements (
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
     posted_by UUID REFERENCES users(id),
-    embedding vector(3072),
+    embedding vector(768),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

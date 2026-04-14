@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { UploadCloud, Trash2, Eye, BellRing, Database, FileText } from 'lucide-react';
 
@@ -8,7 +10,7 @@ export default function AdminPanel() {
   const [announcement, setAnnouncement] = useState({ title: '', content: '' });
   const [statusMsg, setStatusMsg] = useState('');
 
-  // Simulating document fetch - normally this would hit a GET /api/documents endpoint
+  // Simulating document fetch 
   useEffect(() => {
     // Mock data for UI demonstration
     setDocuments([
@@ -29,7 +31,7 @@ export default function AdminPanel() {
     formData.append('userId', 'admin-uuid-placeholder');
 
     try {
-      const response = await fetch('http://localhost:8080/api/upload', {
+      const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       });
@@ -56,7 +58,7 @@ export default function AdminPanel() {
 
   const handleDelete = async (id) => {
     try {
-      const response = await fetch(\`http://localhost:8080/api/documents/\${id}\`, {
+      const response = await fetch(\`/api/documents/\${id}\`, {
         method: 'DELETE',
       });
       
@@ -74,7 +76,7 @@ export default function AdminPanel() {
     e.preventDefault();
     setStatusMsg('Pushing announcement to Vector DB...');
     try {
-      const response = await fetch('http://localhost:8080/api/announcements', {
+      const response = await fetch('/api/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

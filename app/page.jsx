@@ -1,53 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Send, Volume2, User, Bot } from 'lucide-react';
+'use client';
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Mic, Send, User, Bot } from 'lucide-react';
+import { useChat } from 'ai/react';
 
 export default function ChatInterface() {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
+  const [mode, setMode] = useState('standard'); 
   const [isRecording, setIsRecording] = useState(false);
-  const [mode, setMode] = useState('standard'); // 'standard' or 'interview'
-  const ws = useRef(null);
+  
+  const { messages, input, handleInputChange, handleSubmit, setMessages, isLoading } = useChat({
+    api: '/api/chat',
+    body: { mode }
+  });
+
   const messagesEndRef = useRef(null);
-
-  useEffect(() => {
-    // Initialize WebSocket for real-time streaming
-    ws.current = new WebSocket('ws://localhost:8080/chat');
-    
-    ws.current.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'token') {
-        setMessages((prev) => {
-          const newMessages = [...prev];
-          const lastMsg = newMessages[newMessages.length - 1];
-          if (lastMsg && lastMsg.role === 'assistant') {
-            lastMsg.content += data.text;
-          } else {
-            newMessages.push({ role: 'assistant', content: data.text });
-          }
-          return newMessages;
-        });
-      }
-    };
-
-    return () => ws.current?.close();
-  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(scrollToBottom, [messages]);
-
-  const handleSend = () => {
-    if (!input.trim()) return;
-    
-    const newMsg = { role: 'user', content: input };
-    setMessages((prev) => [...prev, newMsg]);
-    
-    // Send via WebSocket
-    ws.current.send(JSON.stringify({ type: 'message', content: input, mode }));
-    setInput('');
-  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 font-sans">
@@ -90,13 +62,22 @@ export default function ChatInterface() {
             </div>
           </div>
         ))}
+        {isLoading && (
+            <div className="flex justify-start">
+               <div className="bg-white text-gray-800 border border-gray-100 rounded-2xl rounded-bl-none p-4 shadow-sm animate-pulse">
+                   <div className="flex items-center gap-2 mb-1 opacity-70 text-xs"><Bot size={14}/><span>MIT Assistant</span></div>
+                   <p className="whitespace-pre-wrap leading-relaxed">...</p>
+               </div>
+            </div>
+        )}
         <div ref={messagesEndRef} />
       </main>
 
       {/* Input Area */}
       <footer className="bg-white border-t p-4">
-        <div className="max-w-4xl mx-auto flex items-center gap-2 bg-gray-100 rounded-full p-2 pr-4 shadow-inner">
+        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto flex items-center gap-2 bg-gray-100 rounded-full p-2 pr-4 shadow-inner">
           <button 
+            type="button"
             className={\`p-3 rounded-full transition-colors \${isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-gray-500 hover:bg-gray-200'}\`}
             onClick={() => setIsRecording(!isRecording)}
             title="Toggle Voice Input"
@@ -109,17 +90,17 @@ export default function ChatInterface() {
             className="flex-1 bg-transparent outline-none px-2"
             placeholder="Ask about courses, faculty, or placements..."
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            onChange={handleInputChange}
           />
           
           <button 
-            className="bg-orange-600 hover:bg-orange-700 text-white p-3 rounded-full transition-transform active:scale-95 shadow-md flex items-center justify-center"
-            onClick={handleSend}
+            type="submit"
+            disabled={isLoading}
+            className="bg-orange-600 hover:bg-orange-700 disabled:bg-orange-400 text-white p-3 rounded-full transition-transform active:scale-95 shadow-md flex items-center justify-center"
           >
             <Send size={18} className="translate-x-[1px]" />
           </button>
-        </div>
+        </form>
       </footer>
     </div>
   );
