@@ -46,7 +46,7 @@ export default function AdminPanel() {
           upload_timestamp: new Date().toISOString()
         }, ...prev]);
       } else {
-        setStatusMsg(\`Error: \${data.error}\`);
+        setStatusMsg(`Error: ${data.error}`);
       }
     } catch (err) {
       setStatusMsg('Network error during upload.');
@@ -58,7 +58,7 @@ export default function AdminPanel() {
 
   const handleDelete = async (id) => {
     try {
-      const response = await fetch(\`/api/documents/\${id}\`, {
+      const response = await fetch(`/api/documents/${id}`, {
         method: 'DELETE',
       });
       
@@ -106,14 +106,14 @@ export default function AdminPanel() {
         <nav className="flex-1 p-4 space-y-2">
           <button 
             onClick={() => setActiveTab('knowledge')}
-            className={\`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors \${activeTab === 'knowledge' ? 'bg-orange-600 text-white' : 'text-slate-300 hover:bg-slate-800'}\`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'knowledge' ? 'bg-orange-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
           >
             <Database size={18} />
             <span className="font-medium">Knowledge Base</span>
           </button>
           <button 
             onClick={() => setActiveTab('announcements')}
-            className={\`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors \${activeTab === 'announcements' ? 'bg-orange-600 text-white' : 'text-slate-300 hover:bg-slate-800'}\`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'announcements' ? 'bg-orange-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`}
           >
             <BellRing size={18} />
             <span className="font-medium">Announcements</span>
@@ -138,8 +138,8 @@ export default function AdminPanel() {
           <div className="space-y-6 max-w-5xl">
             {/* Upload Zone */}
             <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center">
-              <label className={\`cursor-pointer flex flex-col items-center justify-center border-2 border-dashed \${isUploading ? 'border-gray-300 bg-gray-50' : 'border-orange-300 hover:bg-orange-50'} rounded-xl py-12 px-4 transition-all\`}>
-                <UploadCloud size={48} className={\`mb-4 \${isUploading ? 'text-gray-400' : 'text-orange-500'}\`} />
+              <label className={`cursor-pointer flex flex-col items-center justify-center border-2 border-dashed ${isUploading ? 'border-gray-300 bg-gray-50' : 'border-orange-300 hover:bg-orange-50'} rounded-xl py-12 px-4 transition-all`}>
+                <UploadCloud size={48} className={`mb-4 ${isUploading ? 'text-gray-400' : 'text-orange-500'}`} />
                 <span className="text-lg font-medium text-gray-700">
                   {isUploading ? 'Processing Document...' : 'Drag & Drop files here or click to browse'}
                 </span>

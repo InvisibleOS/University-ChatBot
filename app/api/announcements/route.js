@@ -17,15 +17,15 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
         }
 
-        const fullText = \`ANNOUNCEMENT: \${title}\\n\\n\${content}\`;
+        const fullText = `ANNOUNCEMENT: ${title}\n\n${content}`;
         
         const model = genAI.getGenerativeModel({ model: 'text-embedding-004' });
         const result = await model.embedContent(fullText);
         const embedding = result.embedding.values;
 
         const res = await pool.query(
-            \`INSERT INTO announcements (title, content, posted_by, embedding)
-             VALUES ($1, $2, $3, $4::vector) RETURNING id\`,
+            `INSERT INTO announcements (title, content, posted_by, embedding)
+             VALUES ($1, $2, $3, $4::vector) RETURNING id`,
             [title, content, postedBy || 'admin', JSON.stringify(embedding)]
         );
 

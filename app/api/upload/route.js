@@ -50,19 +50,19 @@ async function extractTextFromFile(buffer, mimeType, filename) {
         let combinedString = '';
 
         for (const sheetName of workbook.SheetNames) {
-            combinedString += \`\\n\\n### Sheet: \${sheetName}\\n\\n\`;
+            combinedString += `\n\n### Sheet: ${sheetName}\n\n`;
             const worksheet = workbook.Sheets[sheetName];
             
             const jsonData = xlsx.utils.sheet_to_json(worksheet, { header: 1 });
             if (jsonData.length === 0) continue;
             
             for (let i = 0; i < jsonData.length; i++) {
-                const row = jsonData[i].map(cell => String(cell || '').replace(/\\|/g, '\\\\|').trim());
-                combinedString += \`| \${row.join(' | ')} |\\n\`;
+                const row = jsonData[i].map(cell => String(cell || '').replace(/\|/g, '\\|').trim());
+                combinedString += `| ${row.join(' | ')} |\n`;
                 
                 if (i === 0) {
                     const separator = row.map(() => '---');
-                    combinedString += \`| \${separator.join(' | ')} |\\n\`;
+                    combinedString += `| ${separator.join(' | ')} |\n`;
                 }
             }
         }
@@ -73,7 +73,7 @@ async function extractTextFromFile(buffer, mimeType, filename) {
         return buffer.toString('utf-8');
     }
 
-    throw new Error(\`Unsupported file type ingestion attempted: \${mimeType} (\${filename})\`);
+    throw new Error(`Unsupported file type ingestion attempted: ${mimeType} (${filename})`);
 }
 
 async function generateEmbeddingWithRetry(textChunk, maxRetries = 3) {
@@ -121,8 +121,8 @@ export async function POST(req) {
         await client.query('BEGIN'); 
 
         const docRes = await client.query(
-            \`INSERT INTO documents (title, file_type, uploaded_by) 
-             VALUES ($1, $2, $3) RETURNING id\`,
+            `INSERT INTO documents (title, file_type, uploaded_by) 
+             VALUES ($1, $2, $3) RETURNING id`,
             [filename, mimeType, uploadedBy]
         );
         const documentId = docRes.rows[0].id;
@@ -132,8 +132,8 @@ export async function POST(req) {
             const embedding = await generateEmbeddingWithRetry(chunkContent);
 
             await client.query(
-                \`INSERT INTO document_embeddings (document_id, content, embedding, chunk_index)
-                 VALUES ($1, $2, $3::vector, $4)\`,
+                `INSERT INTO document_embeddings (document_id, content, embedding, chunk_index)
+                 VALUES ($1, $2, $3::vector, $4)`,
                 [documentId, chunkContent, JSON.stringify(embedding), i]
             );
         }

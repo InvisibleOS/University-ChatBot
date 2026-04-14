@@ -48,12 +48,12 @@ export default function ChatInterface() {
         )}
         
         {messages.map((msg, idx) => (
-          <div key={idx} className={\`flex \${msg.role === 'user' ? 'justify-end' : 'justify-start'}\`}>
-            <div className={\`max-w-[75%] rounded-2xl p-4 shadow-sm \${
+          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[75%] rounded-2xl p-4 shadow-sm ${
               msg.role === 'user' 
                 ? 'bg-orange-600 text-white rounded-br-none' 
                 : 'bg-white text-gray-800 border border-gray-100 rounded-bl-none'
-            }\`}>
+            }`}>
               <div className="flex items-center gap-2 mb-1 opacity-70 text-xs">
                 {msg.role === 'user' ? <User size={14}/> : <Bot size={14}/>}
                 <span>{msg.role === 'user' ? 'You' : 'MIT Assistant'}</span>
@@ -78,7 +78,7 @@ export default function ChatInterface() {
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto flex items-center gap-2 bg-gray-100 rounded-full p-2 pr-4 shadow-inner">
           <button 
             type="button"
-            className={\`p-3 rounded-full transition-colors \${isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-gray-500 hover:bg-gray-200'}\`}
+            className={`p-3 rounded-full transition-colors ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-gray-500 hover:bg-gray-200'}`}
             onClick={() => setIsRecording(!isRecording)}
             title="Toggle Voice Input"
           >
