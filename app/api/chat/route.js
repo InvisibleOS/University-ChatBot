@@ -46,7 +46,9 @@ Always base your answers on the provided context. If the answer is not in the co
 async function retrieveContext(query) {
   try {
     const { embedding: queryEmbedding } = await embed({
-      model: googleAI.textEmbeddingModel('gemini-embedding-001'),
+      model: googleAI.textEmbeddingModel('text-embedding-004', {
+        outputDimensionality: 3072,
+      }),
       value: query,
     });
 

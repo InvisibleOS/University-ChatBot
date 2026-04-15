@@ -43,9 +43,11 @@ export async function POST(req) {
 
     const fullText = `ANNOUNCEMENT: ${title}\n\n${content}`;
 
-    // Embed using Gemini (preserves 3072d vector space)
+    // Embed using Gemini (matches 3072d vector space in DB)
     const { embedding } = await embed({
-      model: googleAI.textEmbeddingModel('gemini-embedding-001'),
+      model: googleAI.textEmbeddingModel('text-embedding-004', {
+        outputDimensionality: 3072,
+      }),
       value: fullText,
     });
 

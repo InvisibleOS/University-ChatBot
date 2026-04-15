@@ -84,7 +84,9 @@ async function generateEmbeddingWithRetry(textChunk, maxRetries = 3) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
             const { embedding } = await embed({
-                model: googleAI.textEmbeddingModel('gemini-embedding-001'),
+                model: googleAI.textEmbeddingModel('text-embedding-004', {
+                    outputDimensionality: 3072,
+                }),
                 value: textChunk,
             });
             return embedding;
