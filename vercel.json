@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "app/api/upload/route.js": {
+      "maxDuration": 60
+    },
+    "app/api/chat/route.js": {
+      "maxDuration": 30
+    },
+    "app/api/announcements/route.js": {
+      "maxDuration": 15
+    }
+  }
+}

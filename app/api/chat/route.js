@@ -5,8 +5,11 @@
 
 import { createGroq } from '@ai-sdk/groq';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { streamText, embed } from 'ai';
 import pg from 'pg';
+import { streamText, embed } from 'ai';
+
+// --- Vercel Route Config ---
+export const maxDuration = 30;
 
 // --- Provider Initialization ---
 
