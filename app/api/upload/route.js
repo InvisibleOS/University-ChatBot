@@ -84,9 +84,7 @@ async function generateEmbeddingWithRetry(textChunk, maxRetries = 3) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
             const { embedding } = await embed({
-                model: googleAI.textEmbeddingModel('text-embedding-004', {
-                    outputDimensionality: 3072,
-                }),
+                model: googleAI.textEmbeddingModel('gemini-embedding-001'),
                 value: textChunk,
             });
             return embedding;
@@ -102,14 +100,11 @@ async function generateEmbeddingWithRetry(textChunk, maxRetries = 3) {
     }
 }
 
-// --- Vercel Route Config ---
-export const maxDuration = 10; // Strict limit for Vercel Hobby
-
 export async function POST(req) {
   try {
     const formData = await req.formData();
     const file = formData.get('file');
-    const uploadedBy = null;
+    const uploadedBy = null; // No auth system yet — stored as NULL
 
     if (!file) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
@@ -126,15 +121,6 @@ export async function POST(req) {
         throw new Error("Document contained no extractable textual data.");
     }
 
-    // Hobby Tier Safety Check: 10s is very short for embedding many chunks.
-    // If a document has more than 50 chunks, it will almost certainly time out.
-    if (chunks.length > 50) {
-        return NextResponse.json({ 
-            error: 'Document too large for Vercel Hobby tier.', 
-            details: `This document has ${chunks.length} chunks. The limit for single-pass ingestion on the free tier is ~50 chunks to avoid timeouts.`
-        }, { status: 413 });
-    }
-
     const client = await pool.connect();
 
     try {
@@ -146,29 +132,16 @@ export async function POST(req) {
             [filename, mimeType, uploadedBy]
         );
         const documentId = docRes.rows[0].id;
+        
+        for (let i = 0; i < chunks.length; i++) {
+            const chunkContent = chunks[i];
+            const embedding = await generateEmbeddingWithRetry(chunkContent);
 
-        // Process in parallel batches of 5 to speed up ingestion while staying within 10s
-        const BATCH_SIZE = 5;
-        for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-            const batch = chunks.slice(i, i + BATCH_SIZE);
-            const embeddingPromises = batch.map((chunk, index) => 
-                generateEmbeddingWithRetry(chunk).then(embedding => ({
-                    content: chunk,
-                    embedding,
-                    chunkIndex: i + index
-                }))
+            await client.query(
+                `INSERT INTO document_embeddings (document_id, content, embedding, chunk_index)
+                 VALUES ($1, $2, $3::vector, $4)`,
+                [documentId, chunkContent, JSON.stringify(embedding), i]
             );
-
-            const results = await Promise.all(embeddingPromises);
-
-            // Sequential DB inserts to maintain transaction integrity
-            for (const res of results) {
-                await client.query(
-                    `INSERT INTO document_embeddings (document_id, content, embedding, chunk_index)
-                     VALUES ($1, $2, $3::vector, $4)`,
-                    [documentId, res.content, JSON.stringify(res.embedding), res.chunkIndex]
-                );
-            }
         }
 
         await client.query('COMMIT'); 
@@ -182,7 +155,7 @@ export async function POST(req) {
     }
 
   } catch (error) {
-    console.error('[Upload Error]', error);
+    console.error(error);
     return NextResponse.json({ error: 'Failed to process document', details: error.message }, { status: 500 });
   }
 }

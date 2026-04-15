@@ -40,39 +40,37 @@ Always base your answers on the provided context. If the answer is not in the co
 
 // --- RAG Context Retrieval ---
 // Uses Google Gemini embeddings to match the 3072d vectors stored in Supabase.
-// Queries BOTH announcements (high-priority) and document_embeddings in parallel.
+// Queries BOTH announcements (high-priority) and document_embeddings.
 // This function is non-fatal: if it fails, chat continues without RAG context.
 
 async function retrieveContext(query) {
   try {
     const { embedding: queryEmbedding } = await embed({
-      model: googleAI.textEmbeddingModel('text-embedding-004', {
-        outputDimensionality: 3072,
-      }),
+      model: googleAI.textEmbeddingModel('gemini-embedding-001'),
       value: query,
     });
 
     const embeddingJson = JSON.stringify(queryEmbedding);
 
-    // Run both queries in parallel for better performance
-    const [announcementsRes, docsRes] = await Promise.all([
-      pool.query(
-        `SELECT title, content, 1 - (embedding <=> $1::vector) AS similarity
-         FROM announcements
-         WHERE 1 - (embedding <=> $1::vector) > 0.4
-         ORDER BY similarity DESC
-         LIMIT 3`,
-        [embeddingJson]
-      ),
-      pool.query(
-        `SELECT content, 1 - (embedding <=> $1::vector) AS similarity
-         FROM document_embeddings
-         WHERE 1 - (embedding <=> $1::vector) > 0.5
-         ORDER BY similarity DESC
-         LIMIT 5`,
-        [embeddingJson]
-      )
-    ]);
+    // Query announcements first — treated as high-priority context
+    const announcementsRes = await pool.query(
+      `SELECT title, content, 1 - (embedding <=> $1::vector) AS similarity
+       FROM announcements
+       WHERE 1 - (embedding <=> $1::vector) > 0.4
+       ORDER BY similarity DESC
+       LIMIT 3`,
+      [embeddingJson]
+    );
+
+    // Query document embeddings
+    const docsRes = await pool.query(
+      `SELECT content, 1 - (embedding <=> $1::vector) AS similarity
+       FROM document_embeddings
+       WHERE 1 - (embedding <=> $1::vector) > 0.5
+       ORDER BY similarity DESC
+       LIMIT 5`,
+      [embeddingJson]
+    );
 
     const announcementContext = announcementsRes.rows
       .map((row) => `[ANNOUNCEMENT] ${row.title}\n${row.content}`)
@@ -118,10 +116,6 @@ function normaliseMessages(messages) {
     .filter((m) => m.content.trim().length > 0);
 }
 
-// --- Vercel Route Config ---
-export const maxDuration = 10; // 10 seconds strict limit on Vercel Hobby
-export const dynamic = 'force-dynamic';
-
 // --- POST Handler ---
 
 export async function POST(req) {
@@ -158,7 +152,7 @@ export async function POST(req) {
       model: groq('llama-3.3-70b-versatile'),
       system: systemWithContext,
       messages: coreMessages,
-      abortSignal: AbortSignal.timeout(9000), // Slightly under 10s Vercel limit
+      abortSignal: AbortSignal.timeout(25000),
     });
 
     // AI SDK v6: use toUIMessageStreamResponse (replaces toDataStreamResponse)

@@ -68,10 +68,8 @@ export default function AdminPanel() {
       const response = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await response.json();
       if (response.ok) {
-        showStatus('Document successfully ingested into Vector DB!', 'success');
+        showStatus('Document successfully ingested into Vector DB!');
         await fetchDocuments();
-      } else if (response.status === 413) {
-        showStatus(`File Too Large: ${data.details}`, 'error');
       } else {
         showStatus(`Error: ${data.error} — ${data.details || ''}`, 'error');
       }
