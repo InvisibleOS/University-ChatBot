@@ -18,7 +18,7 @@ const pool = new Pool({
 function chunkText(text, chunkSize = 1000, overlap = 150) {
     if (!text) return [];
     
-    const cleanText = text.replace(/\\s+/g, ' ').trim();
+    const cleanText = text.replace(/\s+/g, ' ').trim();
     const chunks = [];
     let i = 0;
 
