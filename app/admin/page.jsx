@@ -33,10 +33,11 @@ export default function AdminPanel() {
       if (res.ok) {
         setDocuments(data.documents || []);
       } else {
-        showStatus(`Failed to load documents: ${data.error}`, 'error');
+        const errorMsg = data.details ? `${data.error}: ${data.details}` : data.error || 'Unknown error';
+        showStatus(`Failed to load documents: ${errorMsg} (Status: ${res.status})`, 'error');
       }
-    } catch {
-      showStatus('Network error loading documents.', 'error');
+    } catch (err) {
+      showStatus(`Network error loading documents: ${err.message}`, 'error');
     } finally {
       setIsLoadingDocs(false);
     }
@@ -47,9 +48,16 @@ export default function AdminPanel() {
     try {
       const res = await fetch('/api/announcements');
       const data = await res.json();
-      if (res.ok) setAnnouncements(data.announcements || []);
-    } catch { /* non-fatal */ }
-    finally { setIsLoadingAnnouncements(false); }
+      if (res.ok) {
+        setAnnouncements(data.announcements || []);
+      } else {
+        console.error('Announcements fetch error:', data);
+      }
+    } catch (err) {
+      console.error('Announcements network error:', err);
+    } finally {
+      setIsLoadingAnnouncements(false); 
+    }
   };
 
   useEffect(() => { fetchDocuments(); fetchAnnouncements(); }, []);
@@ -85,14 +93,15 @@ export default function AdminPanel() {
     if (!confirm('Delete this document and all its embeddings?')) return;
     try {
       const response = await fetch(`/api/documents/${id}`, { method: 'DELETE' });
+      const data = await response.json();
       if (response.ok) {
         setDocuments(docs => docs.filter(doc => doc.id !== id));
-        showStatus('Document and embeddings deleted.');
+        showStatus('Document and embeddings deleted.', 'success');
       } else {
-        showStatus('Failed to delete document.', 'error');
+        showStatus(`Failed to delete: ${data.error} — ${data.details || ''}`, 'error');
       }
-    } catch {
-      showStatus('Network error during delete.', 'error');
+    } catch (err) {
+      showStatus(`Network error during delete: ${err.message}`, 'error');
     }
   };
 
@@ -106,10 +115,10 @@ export default function AdminPanel() {
       if (res.ok) {
         setPreviewDoc(data);
       } else {
-        showStatus(`Preview failed: ${data.error}`, 'error');
+        showStatus(`Preview failed: ${data.error} — ${data.details || ''}`, 'error');
       }
-    } catch {
-      showStatus('Network error loading preview.', 'error');
+    } catch (err) {
+      showStatus(`Network error loading preview: ${err.message}`, 'error');
     } finally {
       setIsLoadingPreview(false);
     }
@@ -124,16 +133,16 @@ export default function AdminPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...announcement, postedBy: null })
       });
+      const data = await response.json();
       if (response.ok) {
         showStatus('Announcement broadcasted and indexed!', 'success');
         setAnnouncement({ title: '', content: '' });
         await fetchAnnouncements();
       } else {
-        const data = await response.json();
-        showStatus(`Error: ${data.error}`, 'error');
+        showStatus(`Error: ${data.error} — ${data.details || ''}`, 'error');
       }
-    } catch {
-      showStatus('Failed to post announcement.', 'error');
+    } catch (err) {
+      showStatus(`Failed to post announcement: ${err.message}`, 'error');
     }
   };
 

@@ -180,8 +180,12 @@ export async function POST(req) {
         client.release(); 
     }
 
-  } catch (error) {
-    console.error('[Upload Error]', error);
-    return NextResponse.json({ error: 'Failed to process document', details: error.message }, { status: 500 });
+  } catch (err) {
+    console.error('[Upload Error]', err);
+    return NextResponse.json({ 
+        error: 'Failed to process document', 
+        details: err.message,
+        code: err.code 
+    }, { status: 500 });
   }
 }

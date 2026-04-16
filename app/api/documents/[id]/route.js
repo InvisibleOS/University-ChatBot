@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import pg from 'pg';
 
+export const maxDuration = 15;
+export const dynamic = 'force-dynamic';
+
 const { Pool } = pg;
 const pool = new Pool({ 
     connectionString: process.env.DATABASE_URL,
@@ -8,8 +11,19 @@ const pool = new Pool({
 });
 
 export async function GET(req, { params }) {
+    if (!process.env.DATABASE_URL) {
+        return NextResponse.json({ 
+            error: 'Database configuration missing',
+            details: 'DATABASE_URL is not set.'
+        }, { status: 500 });
+    }
+
     try {
-        const docId = params.id;
+        const { id: docId } = await params;
+
+        // Test connectivity
+        const client = await pool.connect();
+        client.release();
 
         // Fetch document metadata
         const meta = await pool.query('SELECT * FROM documents WHERE id = $1', [docId]);
@@ -28,13 +42,18 @@ export async function GET(req, { params }) {
             chunks: chunks.rows,
         });
     } catch (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error(`GET /api/documents/${params?.id} error:`, error);
+        return NextResponse.json({ 
+            error: 'Failed to retrieve document details', 
+            details: error.message,
+            code: error.code
+        }, { status: 500 });
     }
 }
 
 export async function DELETE(req, { params }) {
     try {
-        const docId = params.id;
+        const { id: docId } = await params;
         const result = await pool.query('DELETE FROM documents WHERE id = $1 RETURNING id', [docId]);
         
         if (result.rowCount === 0) {
@@ -43,6 +62,10 @@ export async function DELETE(req, { params }) {
         
         return NextResponse.json({ message: 'Document deleted successfully' });
     } catch (error) {
-        return NextResponse.json({ error: 'Failed to delete document' }, { status: 500 });
+        console.error(`DELETE /api/documents/${params?.id} error:`, error);
+        return NextResponse.json({ 
+            error: 'Failed to delete document',
+            details: error.message 
+        }, { status: 500 });
     }
 }
